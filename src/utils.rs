@@ -5,9 +5,14 @@ use std::{
 };
 
 use color_eyre::{eyre::Context, Result};
+use humantime::Rfc3339Timestamp;
+use once_cell::sync::Lazy;
 use pretty_env_logger::formatted_timed_builder;
+use reqwest::Client;
 
 use crate::Config;
+
+static CLIENT: Lazy<Client> = Lazy::new(Client::new);
 
 pub fn init(config_path: Option<&str>) -> Result<Config> {
     let config = Config::with_path(config_path)?;
@@ -31,4 +36,12 @@ pub fn get_hash(val: impl Hash) -> String {
 
 pub fn ts_to_systemtime(ts: u64) -> SystemTime {
     UNIX_EPOCH + Duration::from_secs(ts)
+}
+
+pub fn ts_to_humantime(ts: u64) -> Rfc3339Timestamp {
+    humantime::format_rfc3339(UNIX_EPOCH + Duration::from_secs(ts))
+}
+
+pub fn get_client<'a>() -> &'a Client {
+    &CLIENT
 }
