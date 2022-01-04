@@ -1,12 +1,13 @@
-//!feedCasters
-//! Structs for generating events from various source
+mod_use::mod_use![feed];
 
-mod_use::mod_use!(feed);
+use std::sync::Arc;
 
 use color_eyre::{eyre::Context, Result};
+use futures::future::join_all;
+use log::error;
 use once_cell::sync::OnceCell;
 use sled::Db;
-use tokio::sync::broadcast::{self, Receiver, Sender};
+use tokio::sync::broadcast::{Receiver, Sender};
 
 use crate::{Config, Event};
 
@@ -19,13 +20,19 @@ pub fn get_db<'a>() -> &'a Db {
     DB.get().expect("DB not initialized")
 }
 
-pub fn run_casters(config: Config) -> Result<TX> {
-    let db = sled::open(config.db_path).wrap_err("Failed to open db")?;
+pub async fn run_casters(tx: TX, config: Arc<Config>) -> Result<TX> {
+    let db = sled::open(&config.db_path).wrap_err("Failed to open db")?;
     drop(DB.set(db));
-    let (tx, _) = broadcast::channel(config.channel_size);
-    let mut feed_handle = None;
-    if let Some(ref rss) = config.feed {
-        feed_handle.replace(start_feed(tx.clone(), rss.clone()));
+
+    let mut handles = vec![];
+    if let Some(ref rss) = config.caster_feed {
+        handles.push(feed::run_feed(tx.clone(), rss.clone()));
     }
+    join_all(handles).await.into_iter().for_each(|res| {
+        if let Err(e) = res {
+            error!("{}", e)
+        }
+    });
+
     Ok(tx)
 }
