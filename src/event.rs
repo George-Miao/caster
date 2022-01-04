@@ -9,7 +9,9 @@ pub enum Event {
     Feed {
         entry_id: String,
         time: i64,
-        payload: String,
+        content: Option<String>,
+        title: Option<String>,
+        link: Option<String>,
     },
 }
 
