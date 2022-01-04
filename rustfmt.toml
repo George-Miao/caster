@@ -1,0 +1,9 @@
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
+reorder_imports = true
+version = "Two"
+wrap_comments = true
+condense_wildcard_suffixes = true
+enum_discrim_align_threshold = 20
+format_macro_matchers = true
+format_strings = true

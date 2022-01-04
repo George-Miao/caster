@@ -1,0 +1,9 @@
+# Example config file
+
+db_path = "data/sled"
+channel_size = 15
+log_level = "info"
+
+[feed]
+interval = 2.0
+urls = ["http://localhost:8080/test.xml"]
