@@ -22,7 +22,10 @@ pub struct Config {
     pub log_level: String,
 
     /// Config of feed caster
-    pub feed: Option<FeedConfig>,
+    pub caster_feed: Option<FeedConfig>,
+
+    /// Config of telegram consumer
+    pub consumer_telegram: Option<TelegramConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +35,16 @@ pub struct FeedConfig {
     /// Interval between requests
     #[serde(default = "default_feed_interval")]
     pub interval: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TelegramConfig {
+    pub api_token: String,
+    pub chats: Vec<i64>,
+
+    /// Max text length of content
+    #[serde(default = "default_telegram_content_max_length")]
+    pub content_max_length: usize,
 }
 
 impl Config {
@@ -67,4 +80,8 @@ fn default_channel_size() -> usize {
 
 fn default_feed_interval() -> f64 {
     5.0
+}
+
+fn default_telegram_content_max_length() -> usize {
+    100
 }

@@ -1,9 +1,15 @@
 # Example config file
+# Fore more detail, see src/config.rs
 
 db_path = "data/sled"
 channel_size = 15
 log_level = "info"
 
-[feed]
+[caster_feed]
 interval = 2.0
-urls = ["http://localhost:8080/test.xml"]
+urls = [ "http://localhost:8080/test.xml" ]
+
+[consumer_telegram]
+api_token = "0000000000:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+content_max_length = 0
+chats = [ -10000000000 ]
