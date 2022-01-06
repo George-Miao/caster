@@ -7,12 +7,12 @@ use futures::future::join_all;
 use log::error;
 use once_cell::sync::OnceCell;
 use sled::Db;
-use tokio::sync::broadcast::{Receiver, Sender};
+use tokio::sync::broadcast;
 
 use crate::{Config, Event};
 
-pub type TX = Sender<Event>;
-pub type RX = Receiver<Event>;
+pub type TX = broadcast::Sender<Event>;
+pub type RX = broadcast::Receiver<Event>;
 
 static DB: OnceCell<Db> = OnceCell::new();
 

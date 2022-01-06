@@ -34,62 +34,64 @@ pub fn run_feed(tx: TX, config: FeedConfig) -> JoinHandle<()> {
                     Err(e) => {
                         warn!("{}", e)
                     }
-                    Ok((feed_id, feed)) => feed.entries.into_iter().for_each(|entry| {
-                        let entry_id = format!("FEED-{}-{}", &feed_id, get_hash(entry.id));
+                    Ok((feed_id, feed)) => {
+                        for entry in feed.entries.into_iter() {
+                            let entry_id = format!("FEED-{}-{}", &feed_id, get_hash(entry.id));
 
-                        let timestamp = entry
-                            .published
-                            .or(entry.updated)
-                            .map(|time| time.timestamp())
-                            .unwrap_or_default();
+                            let timestamp = entry
+                                .published
+                                .or(entry.updated)
+                                .map(|time| time.timestamp())
+                                .unwrap_or_default();
 
-                        debug!("Entry fetched: {}, published at {}", entry_id, timestamp);
+                            debug!("Entry fetched: {}, published at {}", entry_id, timestamp);
 
-                        let data = timestamp.to_be_bytes();
+                            let data = timestamp.to_be_bytes();
 
-                        // Entry already exists
-                        if let Ok(Some(ref v)) = db.get(&entry_id) {
-                            // Entry not updated, early return
-                            if v == &data {
-                                return;
+                            // Entry already exists
+                            if let Ok(Some(ref v)) = db.get(&entry_id) {
+                                // Entry not updated, early return
+                                if v == &data {
+                                    return;
+                                }
+                                // Update entry
+                                if let Err(e) = db.insert(&entry_id, &data) {
+                                    warn!("Failed to insert data to db: {}", e)
+                                };
+                            } else {
+                                // Entry does not exist, insert entry
+                                if let Err(e) = db.insert(&entry_id, &data) {
+                                    warn!("Failed to insert data to db: {}", e)
+                                };
+
+                                if let Ok(true) = ts_to_systemtime(timestamp as u64)
+                                    .elapsed()
+                                    .map(|x| x.as_secs() > SECONDS_PER_DAY * config.ignore_days)
+                                {
+                                    // Newly seen entry that is old, ignoring
+                                    info!("Found old entry, ignored");
+                                    return;
+                                }
                             }
-                            // Update entry
-                            if let Err(e) = db.insert(&entry_id, &data) {
-                                warn!("Failed to insert data to db: {}", e)
-                            };
-                        } else {
-                            // Entry does not exist, insert entry
-                            if let Err(e) = db.insert(&entry_id, &data) {
-                                warn!("Failed to insert data to db: {}", e)
-                            };
 
-                            if let Ok(true) = ts_to_systemtime(timestamp as u64)
-                                .elapsed()
-                                .map(|x| x.as_secs() > SECONDS_PER_DAY * config.ignore_days)
-                            {
-                                // Newly seen entry that is old, ignoring
-                                info!("Found old entry, ignored");
-                                return;
-                            }
+                            let title = entry.title.map(|title| title.content);
+                            let link = entry.links.into_iter().next().map(|x| x.href);
+                            let content = entry
+                                .summary
+                                .map(|content| content.content)
+                                .or_else(|| entry.content.and_then(|x| x.body));
+
+                            // Emit event
+                            tx.send(Event::Feed {
+                                time: timestamp,
+                                entry_id,
+                                content,
+                                title,
+                                link,
+                            })
+                            .expect("All consumers stopped");
                         }
-
-                        let title = entry.title.map(|title| title.content);
-                        let link = entry.links.into_iter().next().map(|x| x.href);
-                        let content = entry
-                            .summary
-                            .map(|content| content.content)
-                            .or_else(|| entry.content.and_then(|x| x.body));
-
-                        // Emit event
-                        tx.send(Event::Feed {
-                            time: timestamp,
-                            entry_id,
-                            content,
-                            title,
-                            link,
-                        })
-                        .expect("All subscribers dropped");
-                    }),
+                    }
                 }
 
                 if let Err(e) = db.flush_async().await {

@@ -47,7 +47,7 @@ pub fn run_crates(tx: TX, config: CratesConfig) -> JoinHandle<()> {
                     links: ver.links().map(Into::into),
                     yanked: ver.is_yanked(),
                 })
-                .expect("All subscribers dropped");
+                .expect("All consumers stopped");
             }
         }
     })

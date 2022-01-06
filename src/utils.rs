@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{config::HookBuilder, eyre::Context, Result};
 use humantime::Rfc3339Timestamp;
 use once_cell::sync::Lazy;
 use pretty_env_logger::formatted_timed_builder;
@@ -16,9 +16,11 @@ use crate::Config;
 static CLIENT: Lazy<Client> = Lazy::new(Client::new);
 
 pub fn init(config_path: Option<&str>) -> Result<Config> {
-    let config = Config::with_path(config_path)?;
+    HookBuilder::default()
+        .display_env_section(false)
+        .install()?;
 
-    color_eyre::install()?;
+    let config = Config::with_path(config_path)?;
 
     let mut builder = formatted_timed_builder();
     builder.parse_filters(&config.log_level);
