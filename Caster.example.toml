@@ -9,6 +9,10 @@ log_level = "info"
 interval = 2.0
 urls = [ "http://localhost:8080/test.xml" ]
 
+[caster_crates]
+interval = 60.0
+crates = [ "foo", "bar" ]
+
 [consumer_telegram]
 api_token = "0000000000:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 content_max_length = 0
