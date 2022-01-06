@@ -20,6 +20,8 @@ futures           = "0.3.19"
 humantime         = "2.1.0"
 html2text         = "0.2.1"
 html-escape       = "0.2.9"
+crates-index      = "0.18.1"
+hex               = "0.4.3"
 
 [features]
 

@@ -1,10 +1,10 @@
-use std::{fmt::Debug, ops::Deref, sync::Arc};
+use std::{ops::Deref, sync::Arc};
 
 use color_eyre::{
     eyre::{eyre, Context},
     Result,
 };
-use futures::{stream::FuturesUnordered, Stream, StreamExt};
+use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, info, warn};
 use telegram_bot_raw::{self as tg, ChatId, ChatRef, SendMessage};
 use tg::GetMe;
@@ -17,7 +17,7 @@ pub fn run_telegram(mut rx: RX, config: TelegramConfig) -> JoinHandle<()> {
         let config = Arc::new(config);
         let chats = config.chats.iter().map(|x| ChatRef::Id(ChatId::new(*x)));
 
-        let me = send(GetMe, config.clone()).await;
+        let me = send(GetMe, &config.api_token).await;
 
         match me {
             Ok(me) => info!("Logged in as {}", me.username.unwrap_or(me.first_name)),
@@ -74,44 +74,62 @@ pub fn run_telegram(mut rx: RX, config: TelegramConfig) -> JoinHandle<()> {
                         content,
                     );
 
-                    let mut stream = send_to_all(
-                        chats.clone().map(|chat| {
-                            let mut msg = SendMessage::new(chat, &msg);
-                            msg.parse_mode(tg::ParseMode::Html);
-                            msg
-                        }),
-                        config.clone(),
+                    send_msgs(chats.clone(), &msg, &config.api_token).await;
+                }
+                Event::CratesIo {
+                    name,
+                    vers,
+                    links,
+                    yanked,
+                } => {
+                    let yanked = if yanked { "\nYanked: true" } else { "" };
+                    let links = if let Some(links) = links {
+                        format!("\nLinks: {links}")
+                    } else {
+                        String::new()
+                    };
+                    let msg = format!(
+                        "[ <a href=\"https://crates.io/crates/{name}\">Crates.io</a> ] New \
+                         update: <b>{name}</b> \n Version: {vers}
+                         {yanked}
+                         {links}"
                     );
-                    while let Some(res) = stream.next().await {
-                        match res {
-                            Ok(_) => info!("Message sent"),
-                            Err(e) => warn!("{:?}", e),
-                        }
-                    }
+                    send_msgs(chats.clone(), &msg, &config.api_token).await;
                 }
             }
         }
     })
 }
 
-fn send_to_all<Req: tg::Request>(
-    reqs: impl Iterator<Item = Req>,
-    config: Arc<TelegramConfig>,
-) -> impl Stream<Item = Result<<<Req as tg::Request>::Response as tg::ResponseType>::Type>>
-where
-    <<Req as tg::Request>::Response as tg::ResponseType>::Type: Debug,
-{
-    reqs.map(|req| send(req, config.clone()))
-        .collect::<FuturesUnordered<_>>()
+async fn send_msgs(chats: impl Iterator<Item = ChatRef>, msg: &str, token: &str) {
+    let mut stream = chats
+        .map(|chat| {
+            let mut msg = SendMessage::new(chat, msg);
+            msg.parse_mode(tg::ParseMode::Html);
+            send(msg, token)
+        })
+        .collect::<FuturesUnordered<_>>();
+    while let Some(res) = stream.next().await {
+        match res {
+            Ok(res) => info!(
+                "Message sent to chat ({})",
+                match res {
+                    tg::MessageOrChannelPost::Message(msg) => msg.chat.id().to_string(),
+                    tg::MessageOrChannelPost::ChannelPost(post) => post.chat.id.to_string(),
+                }
+            ),
+            Err(e) => warn!("{:?}", e),
+        }
+    }
 }
 
 async fn send<Req: tg::Request>(
     req: Req,
-    config: Arc<TelegramConfig>,
+    token: &str,
 ) -> Result<<<Req as tg::Request>::Response as tg::ResponseType>::Type> {
     let res = tg_raw_to_reqwest(
         req.serialize().wrap_err("Failed to serialize request")?,
-        &config.api_token,
+        token,
     )
     .await?;
     let status = res.status();

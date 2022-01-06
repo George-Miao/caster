@@ -9,7 +9,9 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use log::{debug, info, warn};
 use tokio::task::JoinHandle;
 
-use crate::{get_client, get_db, get_hash, Event, FeedConfig, TX};
+use crate::{get_client, get_db, get_hash, ts_to_systemtime, Event, FeedConfig, TX};
+
+const SECONDS_PER_DAY: u64 = 60 * 60 * 24;
 
 pub fn run_feed(tx: TX, config: FeedConfig) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -60,6 +62,15 @@ pub fn run_feed(tx: TX, config: FeedConfig) -> JoinHandle<()> {
                             if let Err(e) = db.insert(&entry_id, &data) {
                                 warn!("Failed to insert data to db: {}", e)
                             };
+
+                            if let Ok(true) = ts_to_systemtime(timestamp as u64)
+                                .elapsed()
+                                .map(|x| x.as_secs() > SECONDS_PER_DAY * config.ignore_days)
+                            {
+                                // Newly seen entry that is old, ignoring
+                                info!("Found old entry, ignored");
+                                return;
+                            }
                         }
 
                         let title = entry.title.map(|title| title.content);
@@ -71,11 +82,11 @@ pub fn run_feed(tx: TX, config: FeedConfig) -> JoinHandle<()> {
 
                         // Emit event
                         tx.send(Event::Feed {
-                            link,
-                            title,
-                            entry_id,
                             time: timestamp,
+                            entry_id,
                             content,
+                            title,
+                            link,
                         })
                         .expect("All subscribers dropped");
                     }),

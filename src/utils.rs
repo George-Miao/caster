@@ -1,7 +1,8 @@
 use std::{
     collections::hash_map,
     hash::{Hash, Hasher},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    thread::sleep,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use color_eyre::{eyre::Context, Result};
@@ -44,4 +45,42 @@ pub fn ts_to_humantime(ts: u64) -> Rfc3339Timestamp {
 
 pub fn get_client<'a>() -> &'a Client {
     &CLIENT
+}
+
+pub struct Interval {
+    interval: Duration,
+    deadline: Option<Instant>,
+}
+
+impl Interval {
+    pub fn every(interval: Duration) -> Self {
+        Self {
+            interval,
+            deadline: None,
+        }
+    }
+
+    pub fn next_tick(&mut self) -> Duration {
+        let now = Instant::now();
+        if self.deadline.is_none() {
+            self.deadline = Some(now + self.interval);
+            return Duration::from_micros(0);
+        }
+        let deadline = self.deadline.unwrap();
+        if now > deadline {
+            let mut point = deadline;
+            loop {
+                point += self.interval;
+                if point > now {
+                    break point - now;
+                }
+            }
+        } else {
+            deadline - now
+        }
+    }
+
+    pub fn tick(&mut self) {
+        sleep(self.next_tick())
+    }
 }

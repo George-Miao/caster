@@ -25,10 +25,7 @@ pub async fn run_consumer(tx: TX, config: Arc<Config>) -> Result<()> {
     });
 
     if start.elapsed()?.as_millis() < 500 {
-        log::warn!(
-            "Shutting down too quickly, did you config both casters and consumers right? (At \
-             least one for each)"
-        )
+        log::warn!("Consumers shutting down too quickly, did you config both consumers right?")
     }
     Ok(())
 }

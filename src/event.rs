@@ -13,6 +13,12 @@ pub enum Event {
         title: Option<String>,
         link: Option<String>,
     },
+    CratesIo {
+        name: String,
+        vers: String,
+        links: Option<String>,
+        yanked: bool,
+    },
 }
 
 impl Display for Event {
@@ -26,6 +32,7 @@ impl Display for Event {
                     format_rfc3339(ts_to_systemtime(*time as u64))
                 )
             }
+            Event::CratesIo { name, .. } => write!(f, "Crates.io event: {} ", name),
         }
     }
 }

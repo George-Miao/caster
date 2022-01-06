@@ -24,6 +24,9 @@ pub struct Config {
     /// Config of feed caster
     pub caster_feed: Option<FeedConfig>,
 
+    /// Config of crates.io caster
+    pub caster_crates: Option<CratesConfig>,
+
     /// Config of telegram consumer
     pub consumer_telegram: Option<TelegramConfig>,
 }
@@ -32,7 +35,22 @@ pub struct Config {
 pub struct FeedConfig {
     pub urls: Vec<String>,
 
-    /// Interval between requests
+    /// How old a newly seen entry will be ignored
+    #[serde(default = "default_feed_ignore_days")]
+    pub ignore_days: u64,
+
+    /// Interval between requests, in second
+    #[serde(default = "default_feed_interval")]
+    pub interval: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CratesConfig {
+    pub crates: Vec<String>,
+
+    /// Interval between updating crates.io index, in second (this will disable
+    /// the cache so low interval may cause performance issue). It's suggested
+    /// that you update every other minute.
     #[serde(default = "default_feed_interval")]
     pub interval: f64,
 }
@@ -79,7 +97,11 @@ fn default_channel_size() -> usize {
 }
 
 fn default_feed_interval() -> f64 {
-    5.0
+    60.0
+}
+
+fn default_feed_ignore_days() -> u64 {
+    30
 }
 
 fn default_telegram_content_max_length() -> usize {
